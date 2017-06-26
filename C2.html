@@ -1,0 +1,314 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Untitled Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <style>
+        * {
+            box-sizing: content-box;
+            padding: 0px;
+            margin: 0px;
+        }
+        
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: black;
+            shape-rendering: auto;
+        }
+        
+        .axis text {
+            font-size: 11px;
+            fill: blue;
+        }
+        
+        #label_bar {
+            text-align: center;
+            height: 25px;
+        }
+        
+        .label {
+            display: inline-block;
+            margin: auto 20px auto 20px;
+            height: 25px;
+        }
+        
+        .label_cube {
+            display: inline-block;
+            width: 50px;
+            height: 25px;
+            border-radius: 5px;
+            margin-right: 3px;
+        }
+        
+        .label_text {
+            display: inline-block;
+            line-height: 25px;
+            vertical-align: top;
+        }
+        
+        .tooltip {
+            position: absolute;
+            /* left: 20px; */
+            /* top:  100px; */
+            background: #fff;
+            width: 150px;
+            height: auto;
+            padding: 0px 10px;
+            border-radius: 5px;
+            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip.hidden {
+            display: none;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <script>
+        //var lineHeight = 30;
+        var padding = 50;
+        var wSVG = 1500;
+        var hSVG = 800;
+        var wChart = 1400;
+        var hChart = 700;
+        var duration_time = 2000;
+        var wBarT = 18;
+        var wBarS = 9;
+
+        var svg = d3.select('body').append('svg').attr({
+            'width': wSVG,
+            'height': hSVG
+        });
+
+        var xScale;
+        var yScale;
+
+        var typeName = {
+            "Exports": "出口",
+            "Imports": "出口",
+            "Product": "生產",
+            "Reexports": "轉口貿易"
+        };
+
+
+        //產生tooltip
+        tooltip = d3.select("body").append("div").classed("tooltip", true).classed("hidden", true);
+        tooltip.append("p").append("strong").classed("Years", true);
+        tooltip.append("p").classed("msg", true);
+
+
+        //讀取數據
+        d3.csv("C2.csv", mid, function(fDataSet) {
+
+            var body = d3.select('body');
+
+            console.log(fDataSet);
+
+
+
+            xScale = d3.scale.linear()
+                .domain([
+                    d3.min(fDataSet, function(d) {
+                        return d.Years;
+                    }),
+                    d3.max(fDataSet, function(d) {
+                        return d.Years;
+                    }),
+                ])
+                .range([0, wChart]);
+
+            yScale = d3.scale.linear()
+                .domain([
+                    0,
+                    d3.max(fDataSet, function(d) {
+                        return d.Total;
+                    })
+                ])
+                .range([0, hChart]);
+
+            yAxisScale = d3.scale.linear()
+                .domain([
+                    0,
+                    d3.max(fDataSet, function(d) {
+                        return d.Total;
+                    })
+                ])
+                .range([hChart, 0]);
+
+
+            //X軸
+            var xAxis = d3.svg.axis()
+                .scale(xScale)
+            //    .ticks(19);
+            //                        .tickFormat(function(d){
+            //                            return d/1000000000+"G";
+            //                        });
+            svg.append("g")
+                .attr({
+                    'class': 'axis'
+                })
+                .attr("transform", "translate(" + (padding) + "," + (padding + hChart + 1) + ")")
+                .call(xAxis);
+
+
+            //Y軸
+            var yAxis = d3.svg.axis()
+                .scale(yAxisScale)
+                .orient("left")
+                .tickFormat(function(d) {
+                    return d / 1000000 + "M";
+                });
+            svg.append("g")
+                .attr({
+                    'class': 'axis'
+                })
+                .attr("transform", "translate(" + (padding - 12) + "," + (padding) + ")")
+                .call(yAxis);
+
+
+            //全部
+            draw_bar(fDataSet, function(d) {
+                return d.Years
+            }, function(d) {
+                return d.Total;
+            }, "red", "全部", wBarT);
+
+            //鯊魚
+            draw_bar(fDataSet, function(d) {
+                    return d.Years
+                }, function(d) {
+                    return d.Shark * 100;
+                }, "gold",
+                "鯊魚", wBarS);
+
+
+
+
+        });
+
+        //CSV預處理
+        function mid(d) {
+            d.Years = +d.Years;
+            d.Total = +d.Total;
+            d.Shark = +d.Shark;
+            return d;
+        }
+
+
+        //bind
+        function make_ob(svg, ob, dataset) {
+            var selection = svg.append("g").selectAll(ob).data(dataset);
+            selection.enter().append(ob);
+            selection.exit().remove();
+
+            return selection;
+        }
+
+        //畫長條圖
+        function draw_bar(fDataSet, xValue, yValue, color, typeName, wBar) {
+            console.log("開始畫線");
+            //畫方塊
+            make_ob(svg, "rect", fDataSet).attr({
+                    x: function(d, i) {
+                        return padding + xScale(xValue(d)) - (wBar / 2);
+                    },
+                    y: padding+hChart,
+                    width: wBar,
+                    height: 0,
+                    fill: color
+                })
+                .transition()
+                .duration(duration_time)
+                .ease("bounce")
+                .attr({
+                    y: function(d, i) {
+                        return padding + hChart - yScale(yValue(d));
+                    },
+                    height: function(d) {
+                        return yScale(yValue(d));
+                    }
+                });
+
+            //畫圓
+            //            make_ob(svg, "circle", fDataSet).attr({
+            //                    cx: function(d, i) {
+            //                        return padding + xScale(xValue(d));
+            //                    },
+            //                    cy: padding+hChart,
+            //                    r: 5,
+            //                    fill: color
+            //                })
+            //
+            //                .on("mouseover", function(d) {
+            //                    console.log(d.Years + "年 " + typeName + "：" + yValue(d));
+            //
+            //                    var posX = +d3.select(this).attr("cx");
+            //                    var posY = +d3.select(this).attr("cy");
+            //
+            //                    tooltip.classed("hidden", false);
+            //                    tooltip.select(".Years").text(function() {
+            //                        return xValue(d) + "年";
+            //                    });
+            //                    tooltip.select(".msg").text(function() {
+            //                        return typeName + ":" + yValue(d) + "噸";
+            //                    });
+            //
+            //                    var tooltip_w = +tooltip.style("width").substr(0, tooltip.style("width").length - 2);
+            //                    var tooltip_h = +tooltip.style("height").substr(0, tooltip.style("height").length - 2);
+            //
+            //                    var left = (posX > wSVG - tooltip_w - 20) ? posX - tooltip_w - 20 : posX + 20;
+            //                    var top = (posY > hSVG - tooltip_h - 20) ? posY - tooltip_h - 20 : posY + 20;
+            //                    console.log(left);
+            //                    tooltip.style({
+            //                        left: (left) + "px",
+            //                        top: (top) + "px"
+            //                    })
+            //
+            //                }).on("mouseout", function() {
+            //                    tooltip.classed("hidden", true);
+            //                }).transition()
+            //                .duration(duration_time)
+            //                .attr({
+            //                    cy: function(d, i) {
+            //                        return padding + yScale(yValue(d));
+            //                    }
+            //                });
+
+
+            //標籤
+            var myLabel = d3.select("#label_bar").append("div").attr("class", "label");
+            myLabel
+                .append("div")
+                .attr("class", "label_cube")
+                .style({
+                    "background-color": color
+                });
+            myLabel.append("div").attr("class", "label_text").text(typeName);
+
+
+
+
+        }
+
+    </script>
+
+    <div id="label_bar">
+
+    </div>
+
+
+
+
+
+
+
+</body>
+
+</html>
